@@ -19,12 +19,12 @@ np.random.seed(42)
 # Parameters
 N = 10  # Portfolio size
 tau = 0.5  # Correlation between Z_D and Z_L
-rho_D = np.sqrt(0.5) * np.ones(N)  # Factor loadings for default, uniform
-rho_L = np.sqrt(0.5) * np.ones(N)  # Factor loadings for LGD, uniform
-alpha_beta = 2  # Shape parameter alpha for Beta
-beta_beta = 5   # Shape parameter beta for Beta
-p = np.array([0.01 * (i+1) for i in range(N)])  # Unconditional PDs: 0.01 to 0.10
-x_d = norm.ppf(1 - p)  # Default thresholds
+rho_D = np.sqrt(0.5) * np.ones(N)  
+rho_L = np.sqrt(0.5) * np.ones(N)  
+alpha_beta = 2  
+beta_beta = 5   
+p = np.array([0.01 * (i+1) for i in range(N)]) # Unconditional PDs: 0.01 to 0.10
+x_d = norm.ppf(1 - p) # Default thresholds
 
 
 # Given VaR values for alphas [0.95,0.96,0.97,0.98,0.99]
@@ -38,15 +38,15 @@ a_VaR_values = [1.1432, 1.3098, 1.5397, 1.8733, 2.4625]
 
 
 # Simulation parameters (modifiable)
-N_outer = 1000  # Number of outer simulations for Z (e.g., 1000 for testing, increase for accuracy)
-N_inner = 1000  # Number of inner simulations for L_{-i} and epsilon_i (e.g., 10000)
-reps = 10  # Number of repetitions for averaging and SE
+N_outer = 1000 # Number of outer simulations for Z (e.g., 1000 for testing, increase for accuracy)
+N_inner = 1000 # Number of inner simulations for L_{-i} and epsilon_i (e.g., 10000)
+reps = 10 # Number of repetitions for averaging and SE
 
 
 def compute_safa_varc(a_VaR_values, N_outer, N_inner, reps, u=None):
 
     cov_matrix = np.array([[1, tau], [tau, 1]])
-    u = np.ones(N) if u is None else np.asarray(u, dtype=float)   # shape (N,)
+    u = np.ones(N) if u is None else np.asarray(u, dtype=float) # shape (N,)
 
     results = []
 
@@ -139,7 +139,7 @@ def compute_safa_varc(a_VaR_values, N_outer, N_inner, reps, u=None):
                         denom = (1 - p_cond[i])
                         prod_i = prod_all / denom if denom > 0 else 0.0
                         # - a * f_cond(a/u_i) * prod_{j≠i}(1 - p_j)
-                        boundary[i] = - a * f_at * prod_i
+                        boundary[i] = - a / u[i] * f_at * prod_i
                     # Else, boundary[i] stays 0 (includes the typical min(1, a/u_i)=1 case)
 
                 inner_values = np.zeros(N)
@@ -148,7 +148,7 @@ def compute_safa_varc(a_VaR_values, N_outer, N_inner, reps, u=None):
                 for i in range(N):
                     thresholds = a - u[i] * epsilon_samples
                     F = np.searchsorted(sorted_L_minus[i], thresholds, side='right') / N_inner
-                    inner_avg = u[i] * (np.sum(F * g) / N_inner) + boundary[i]
+                    inner_avg = np.sum(F * g) / N_inner + boundary[i]
                     inner_values[i] = inner_avg
 
                 # A_i = E_Z[ p_i(Z_D) * inner(z) ]
@@ -160,6 +160,7 @@ def compute_safa_varc(a_VaR_values, N_outer, N_inner, reps, u=None):
             # Denominator via full allocation: f_L(a) = sum_i A_i / a
             sum_A = np.sum(A)
             f_L_a = sum_A / a if a != 0 else 0.0
+            # print(f_L_a)
 
             VaRC = A / f_L_a if f_L_a != 0 else np.zeros(N)
             VaRC_reps.append(VaRC)

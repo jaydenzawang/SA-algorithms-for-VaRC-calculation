@@ -13,6 +13,7 @@ from numpy.polynomial.hermite import hermgauss
 from numpy.polynomial.legendre import leggauss
 import time
 from tqdm import tqdm
+from scipy.optimize import fsolve
 
 np.random.seed(42)
 
@@ -64,12 +65,12 @@ gh_x, gh_w = hermgauss(N_gh)  # not used directly; kept if need raw nodes/weight
 
 # Conditional LGD density f_{eps | Z_L}(e | zL, rhoL)
 def f_eps_cond(e, zL, rhoL, a_beta, b_beta):
-    e = np.clip(e, 1e-14, 1 - 1e-14)
+
+    e = np.asarray(e, dtype=float)
     f_b = beta.pdf(e, a_beta, b_beta)
     u = beta.cdf(e, a_beta, b_beta)
-    u = np.clip(u, 1e-16, 1.0 - 1e-16)  # avoid ppf blowup
     v = norm.ppf(u)
-    s = np.sqrt(max(1.0 - rhoL**2, 1e-14))
+    s = np.sqrt(1.0 - rhoL**2)
     w = (v - rhoL * zL) / s
     num = norm.pdf(w)
     denom = norm.pdf(v) * s
@@ -81,10 +82,9 @@ def f_eps_cond(e, zL, rhoL, a_beta, b_beta):
 def M_eps_and_derivs(t, zL, rhoL, a_beta, b_beta, n_gl=N_gl):
     e_nodes, e_weights = gauss_legendre_on_01(n_gl)
     fvals = f_eps_cond(e_nodes, zL, rhoL, a_beta, b_beta)
-    t_clipped = np.clip(t, -700, 700)  # for numerical stability
-    et  = np.exp(t_clipped * e_nodes)
-    M0 = np.sum(e_weights * et               * fvals)
-    M1 = np.sum(e_weights * (e_nodes)   * et * fvals)
+    et  = np.exp(t * e_nodes)
+    M0 = np.sum(e_weights * et * fvals)
+    M1 = np.sum(e_weights * (e_nodes) * et * fvals)
     M2 = np.sum(e_weights * (e_nodes**2)* et * fvals)
     M3 = np.sum(e_weights * (e_nodes**3)* et * fvals)
     M4 = np.sum(e_weights * (e_nodes**4)* et * fvals)
@@ -93,15 +93,9 @@ def M_eps_and_derivs(t, zL, rhoL, a_beta, b_beta, n_gl=N_gl):
 
 # A_i and derivatives with EAD u_i
 def A_i_and_derivs(t, zD, zL, rhoDi, rhoLi, xdi, a_beta, b_beta, ui):
-    """
-    A0..A4 for obligor i with EAD=ui.
-    For D_i ~ Bernoulli(p_i(Z_D)), epsilon_i|Z_L, we have:
-      E[exp(t * u_i * epsilon_i * D_i) | Z] = 1 - p + p * M0(t * u_i)
-    Derivatives:
-      A1 = p * u_i^1 * M1(t u_i),
-      A2 = p * u_i^2 * M2(t u_i), etc.
-    """
-    sD  = np.sqrt(max(1.0 - rhoDi**2, 1e-14))
+
+    
+    sD  = np.sqrt(1.0 - rhoDi**2)
     arg = (xdi - rhoDi * zD) / sD
     pz  = 1.0 - norm.cdf(arg)
 
@@ -134,7 +128,8 @@ def K_and_derivs(t, zD, zL, rhoD_vec, rhoL_vec, xds, a_beta, b_beta, u_vec):
         A0, A1, A2, A3, A4 = A_i_and_derivs(
             t, zD, zL, rhoD_vec[i], rhoL_vec[i], xds[i], a_beta, b_beta, u_vec[i]
         )
-        A0s[i] = max(A0, 1e-300)  # avoid log(0)
+        
+        A0s[i] = A0
         A1s[i] = A1
         A2s[i] = A2
         A3s[i] = A3
@@ -154,59 +149,40 @@ def K_and_derivs(t, zD, zL, rhoD_vec, rhoL_vec, xds, a_beta, b_beta, u_vec):
     return K0, K1, K2, K3, K4
 
 
-# Solve saddlepoint K'(t) = a with u
+# Solve saddlepoint K'(t) = a with u_vec using fsolve
 def solve_saddlepoint(a_target, zD, zL, rhoD_vec, rhoL_vec, xds, a_beta, b_beta, u_vec,
-                      t0=0.1, max_iter=60):
-    t = t0
+                      t0=0.1, max_iter=200):
 
-    # Newton-like steps
-    for _ in range(max_iter):
+    def equation(t_array):
+
+        t_val = float(t_array[0])
         try:
-            _, K1, K2, _, _ = K_and_derivs(t, zD, zL, rhoD_vec, rhoL_vec, xds, a_beta, b_beta, u_vec)
-        except (OverflowError, ValueError):
-            break
-        diff = K1 - a_target
-        if abs(diff) < 1e-11:
-            return t
-        if K2 <= 1e-12:
-            break
-        step  = np.sign(diff) * min(abs(diff / K2), 1.0)
-        t_new = t - step
-        if not np.isfinite(t_new):
-            break
-        t = t_new
+            _, K1, _, _, _ = K_and_derivs(
+                t_val, zD, zL, rhoD_vec, rhoL_vec, xds, a_beta, b_beta, u_vec
+            )
+            residual = K1 - a_target
+        except (FloatingPointError, OverflowError, ValueError):
+            residual = 1e6
+        return np.array([residual], dtype=float)
 
-    # Bisection fallback
-    lo, hi = -50.0, 50.0
-    try:
-        _, K1_lo, _, _, _ = K_and_derivs(lo, zD, zL, rhoD_vec, rhoL_vec, xds, a_beta, b_beta, u_vec)
-        if K1_lo > a_target:
-            return lo
-        _, K1_hi, _, _, _ = K_and_derivs(hi, zD, zL, rhoD_vec, rhoL_vec, xds, a_beta, b_beta, u_vec)
-        if K1_hi < a_target:
-            return hi
-    except (OverflowError, ValueError):
-        return t0
+    t_init = np.array([t0], dtype=float)
 
-    for _ in range(80):
-        mid = 0.5 * (lo + hi)
-        if mid == lo or mid == hi:
-            break
-        try:
-            _, K1_mid, _, _, _ = K_and_derivs(mid, zD, zL, rhoD_vec, rhoL_vec, xds, a_beta, b_beta, u_vec)
-            if np.isnan(K1_mid):
-                hi = mid if a_target < K1_mid else lo
-                continue
-            if K1_mid > a_target:
-                hi = mid
-            else:
-                lo = mid
-        except (OverflowError, ValueError):
-            hi = mid
-    return 0.5 * (lo + hi)
+    root, info, ier, mesg = fsolve(
+        equation,
+        x0=t_init,
+        full_output=True,
+        maxfev=max_iter
+    )
+
+    t_hat = float(root[0])
+
+    if ier != 1 or not np.isfinite(t_hat):
+        t_hat = t0
+
+    return t_hat
 
 
-# Conditional SPA density f_{L|Z}(a | Z)
+# Conditional SPA density f_{L|Z}(a|Z)
 def spa_conditional_density(a_target, zD, zL, rhoD_vec, rhoL_vec, xds, a_beta, b_beta, u_vec):
     t_hat = solve_saddlepoint(a_target, zD, zL, rhoD_vec, rhoL_vec, xds, a_beta, b_beta, u_vec, t0=0.1)
     K0, _, K2, K3, K4 = K_and_derivs(t_hat, zD, zL, rhoD_vec, rhoL_vec, xds, a_beta, b_beta, u_vec)
@@ -217,6 +193,7 @@ def spa_conditional_density(a_target, zD, zL, rhoD_vec, rhoL_vec, xds, a_beta, b
         lam4 = np.nan_to_num(K4 / (K2**2))
     pref = np.exp(K0 - t_hat * a_target) / np.sqrt(2.0 * np.pi * K2)
     corr = 1.0 + 0.125 * (lam4 - (5.0 / 3.0) * (lam3**2))
+    
     return max(0.0, pref * corr)
 
 
@@ -237,6 +214,7 @@ def f_L_via_SPA(a, tau, rhoD_vec, rhoL_vec, xds, a_beta, b_beta, u_vec, n_gh=N_g
             dens = spa_conditional_density(a, zD, zL, rhoD_vec, rhoL_vec, xds, a_beta, b_beta, u_vec)
             if np.isfinite(dens):
                 total += w * dens
+    
     return total
 
 
@@ -249,10 +227,9 @@ def compute_saspa_varc(a_VaR_values, N_outer, N_inner, reps, u=None):
 
     # helper: scalar f_{eps|ZL}(e | zL) for boundary term
     def f_cond_scalar(e, zL):
-        e = float(np.clip(e, 1e-12, 1 - 1e-12))
+        e = float(e)
         fb = beta.pdf(e, alpha_beta, beta_beta)
         ua = beta.cdf(e, alpha_beta, beta_beta)
-        ua = np.clip(ua, 1e-16, 1 - 1e-16)
         v  = norm.ppf(ua)
         sL = np.sqrt(max(1 - rho_L[0]**2, 1e-14))
         w  = (v - rho_L[0] * zL) / sL
@@ -286,28 +263,28 @@ def compute_saspa_varc(a_VaR_values, N_outer, N_inner, reps, u=None):
                 # Compute Y_j, epsilon_j
                 Y = rho_L[:, None] * z_L + np.sqrt(1 - rho_L[:, None]**2) * eta_L
                 Uc = norm.cdf(Y)
-                epsilon = beta.ppf(Uc, alpha_beta, beta_beta)  # (N, N_inner)
+                epsilon = beta.ppf(Uc, alpha_beta, beta_beta) # (N, N_inner)
 
                 # Compute X_j, D_j
                 X = rho_D[:, None] * z_D + np.sqrt(1 - rho_D[:, None]**2) * eta_D
-                Dmat = (X > x_d[:, None]).astype(float)  # (N, N_inner)
+                Dmat = (X > x_d[:, None]).astype(float) # (N, N_inner)
 
                 # Individual losses with EAD
-                losses = (u[:, None]) * epsilon * Dmat  # (N, N_inner)
+                losses = (u[:, None]) * epsilon * Dmat # (N, N_inner)
 
                 # Total L and L_{-i}
-                L_total = np.sum(losses, axis=0)  # (N_inner,)
-                L_minus = L_total[None, :] - losses  # (N, N_inner)
+                L_total = np.sum(losses, axis=0) # (N_inner,)
+                L_minus = L_total[None, :] - losses # (N, N_inner)
 
                 # Sort L_{-i} for each i for binary search
-                sorted_L_minus = np.sort(L_minus, axis=1)  # (N, N_inner)
+                sorted_L_minus = np.sort(L_minus, axis=1) # (N, N_inner)
 
                 # Sample M = N_inner independent epsilon_i | z_L (shared rho_L)
                 eta_L_i = np.random.randn(N_inner)
                 sL = np.sqrt(1 - rho_L[0]**2)
-                Y_i = rho_L[0] * z_L + sL * eta_L_i  # rho_L same for all
+                Y_i = rho_L[0] * z_L + sL * eta_L_i # rho_L same for all
                 U_i = norm.cdf(Y_i)
-                eps_i = np.clip(beta.ppf(U_i, alpha_beta, beta_beta), 1e-9, 1 - 1e-9)  # (N_inner,)
+                eps_i = beta.ppf(U_i, alpha_beta, beta_beta) # (N_inner,)
 
                 # Vectorized computation for f_cond, f_prime_cond, g
                 f_beta_vals = beta.pdf(eps_i, alpha_beta, beta_beta)
@@ -343,14 +320,14 @@ def compute_saspa_varc(a_VaR_values, N_outer, N_inner, reps, u=None):
                         denom = (1 - p_cond[i])
                         prod_i = (prod_all / denom) if denom > 0 else 0.0
                         # - a * f_cond(a/u_i | z_L) * Π_{j≠i} (1 - p_j(Z_D))
-                        boundary[i] = - a * f_at * prod_i
+                        boundary[i] = - a / u[i] * f_at * prod_i
 
                 # inner averages with thresholds a - u_i * eps_i
                 inner_values = np.zeros(N)
                 for i in range(N):
                     thresholds = a - u[i] * eps_i
                     F = np.searchsorted(sorted_L_minus[i], thresholds, side='right') / N_inner
-                    inner_avg = u[i] * (np.sum(F * g) / N_inner) + boundary[i]
+                    inner_avg = np.sum(F * g) / N_inner + boundary[i]
                     inner_values[i] = inner_avg
 
                 # Accumulate A_i = E_Z[ p_i(Z_D) * inner(z) ]
