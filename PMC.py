@@ -87,7 +87,7 @@ def mean_se(array):
     se = np.std(array) / np.sqrt(len(array))
     return mean, se
 
-def var_varc_es_esc_pmc(d, alpha, LGD_a, LGD_b, simulation_runs, bandwidth):
+def var_varc_es_esc_pmc(d, alpha, LGD_a, LGD_b, simulation_runs, bandwidth = 0.01):
     start_time = time.time()
     
     n_repetitions = 10
