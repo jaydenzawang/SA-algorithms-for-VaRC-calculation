@@ -1,0 +1,26 @@
+# If you use algorithms such as SAFA/SASPA in this repository to calculate VaR Contribution, please be sure to cite our officially published papers (preferred-citation).
+# Thank you for your support!
+cff-version: 1.2.0
+message: "If you use the SAFA or SASPA algorithms or any code in this repository for VaR Contribution calculation, please cite the paper below (preferred-citation)."
+title: "SA-algorithms-for-VaRC-calculation"
+type: software
+authors:
+  - given-names: Jayden Zian
+    family-names: Wang
+    affiliation: "Financial Technology Thrust, Hong Kong University of Science and Technology (Guangzhou)"
+repository-code: "https://github.com/jaydenzawang/SA-algorithms-for-VaRC-calculation"
+url: "https://github.com/jaydenzawang/SA-algorithms-for-VaRC-calculation"
+license: MIT
+version: "1.0"
+date-released: "2026-03-11"
+
+preferred-citation:
+  type: article
+  authors:
+    - given-names: Jayden Zian
+      family-names: Wang
+  title: "Simulation-analytical approach for calculating VaR contributions in credit portfolios"
+  journal: "Quantitative Finance"
+  year: 2026
+  doi: "10.1080/14697688.2026.2641764"
+  url: "https://doi.org/10.1080/14697688.2026.2641764"
