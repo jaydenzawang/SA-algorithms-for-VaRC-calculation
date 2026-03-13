@@ -1,13 +1,19 @@
-# If you use algorithms such as SAFA/SASPA in this repository to calculate VaR Contribution, please be sure to cite our officially published papers (preferred-citation).
+# If you use algorithms in this repository to calculate VaR Contribution, please be sure to cite our officially published papers.
 # Thank you for your support!
 cff-version: 1.2.0
-message: "If you use the SAFA or SASPA algorithms or any code in this repository for VaR Contribution calculation, please cite the paper below (preferred-citation)."
+message: "If you use the SAFA or SASPA algorithms or any code in this repository for VaR Contribution calculation, please cite the paper below."
 title: "SA-algorithms-for-VaRC-calculation"
 type: software
 authors:
-  - given-names: Jayden Zian
-    family-names: Wang
-    affiliation: "Financial Technology Thrust, Hong Kong University of Science and Technology (Guangzhou)"
+  - family-names: "Wang"
+    given-names: "Jayden Zian"
+    affiliation: "Financial Technology Thrust, Hong Kong University of Science and Technology (Guangzhou), Guangzhou, People's Republic of China"
+  - family-names: "Huang"
+    given-names: "Zhenzhen"
+    affiliation: "Department of Mathematics, Ohio State University, Columbus, OH, USA"
+  - family-names: "Kwok"
+    given-names: "Yue Kuen"
+    affiliation: "Financial Technology Thrust, Hong Kong University of Science and Technology (Guangzhou), Guangzhou, People's Republic of China"
 repository-code: "https://github.com/jaydenzawang/SA-algorithms-for-VaRC-calculation"
 url: "https://github.com/jaydenzawang/SA-algorithms-for-VaRC-calculation"
 license: MIT
@@ -19,8 +25,14 @@ preferred-citation:
   authors:
     - given-names: Jayden Zian
       family-names: Wang
+    - family-names: "Huang"
+      given-names: "Zhenzhen"
+    - family-names: "Kwok"
+      given-names: "Yue Kuen"
   title: "Simulation-analytical approach for calculating VaR contributions in credit portfolios"
   journal: "Quantitative Finance"
+  publisher:
+    name: "Taylor \& Francis"
   year: 2026
   doi: "10.1080/14697688.2026.2641764"
   url: "https://doi.org/10.1080/14697688.2026.2641764"
