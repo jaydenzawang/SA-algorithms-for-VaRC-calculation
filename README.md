@@ -3,7 +3,8 @@
 ## Citation Requirement
 If you use any code or algorithm (`SAFA.py`, `SASPA.py`, etc.) from this repository, **please cite our paper**:
 
-Wang, J. Z., Huang, Z., & Kwok, Y. K. (2026). Simulation-analytical approach for calculating VaR contributions in credit portfolios. *Quantitative Finance*. https://doi.org/10.1080/14697688.2026.2641764
+Wang, J. Z., Huang, Z., & Kwok, Y. K. (2026). Simulation-analytical approach for calculating VaR contributions in credit portfolios. *Quantitative Finance*, *26*(5), 743-759.
+https://doi.org/10.1080/14697688.2026.2641764
 
 Formats such as BibTeX/APA can be copied directly from the **Cite this repository** button on the right.
 
