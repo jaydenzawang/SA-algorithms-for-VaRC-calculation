@@ -23,8 +23,8 @@ date-released: "2026-03-11"
 preferred-citation:
   type: article
   authors:
-    - given-names: Jayden Zian
-      family-names: Wang
+    - family-names: "Wang"
+      given-names: "Jayden Zian"
     - family-names: "Huang"
       given-names: "Zhenzhen"
     - family-names: "Kwok"
@@ -34,5 +34,9 @@ preferred-citation:
   publisher:
     name: "Taylor & Francis"
   year: 2026
+  volume: 26
+  issue: 5
+  start: 743
+  end: 759
   doi: "10.1080/14697688.2026.2641764"
   url: "https://doi.org/10.1080/14697688.2026.2641764"
